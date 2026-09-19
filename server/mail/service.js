@@ -366,6 +366,45 @@ export function textToHtml(text) {
 }
 
 /**
+ * Hand a fully built message to SMTP. Hosts that block outbound SMTP ports (e.g. Render's free
+ * plan) set SMTP_RELAY_URL + RELAY_SECRET, and the message is sent by the relay function in
+ * api/relay-send.js (deployed on Vercel) instead.
+ */
+async function deliver(account, envelope, raw) {
+  const smtp = {
+    host: account.smtp.host,
+    port: account.smtp.port,
+    secure: account.smtp.secure !== false,
+    user: account.email,
+    pass: account.password,
+  };
+  const relay = process.env.SMTP_RELAY_URL;
+  if (relay) {
+    const res = await fetch(relay, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Relay-Secret': process.env.RELAY_SECRET || '' },
+      body: JSON.stringify({ smtp, envelope, raw: raw.toString('base64') }),
+      signal: AbortSignal.timeout(60000),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw Object.assign(new Error(data.error || `Send relay failed (${res.status})`), { status: 502 });
+    return data;
+  }
+  const transport = nodemailer.createTransport({
+    host: smtp.host,
+    port: smtp.port,
+    secure: smtp.secure,
+    auth: { user: smtp.user, pass: smtp.pass },
+    connectionTimeout: 20000,
+  });
+  try {
+    return await transport.sendMail({ envelope, raw });
+  } finally {
+    transport.close();
+  }
+}
+
+/**
  * Send an email from a mailbox via SMTP and store a copy in its Sent folder.
  * opts: { to, cc, bcc, subject, text, html, attachments:[{filename, content(base64)|path, contentType}],
  *         inReplyTo, references, signature(bool) }
@@ -406,16 +445,8 @@ export async function sendMail(account, opts) {
   const raw = await node.build();
   const messageId = node.messageId();
 
-  const transport = nodemailer.createTransport({
-    host: account.smtp.host,
-    port: account.smtp.port,
-    secure: account.smtp.secure !== false,
-    auth: { user: account.email, pass: account.password },
-    connectionTimeout: 20000,
-  });
   const envelope = { from: account.email, to: [...to, ...cc, ...bcc].map((x) => (typeof x === 'string' ? x : x.address)) };
-  const info = await transport.sendMail({ envelope, raw });
-  transport.close();
+  const info = await deliver(account, envelope, raw);
 
   // Keep a copy in Sent (SpaceMail does not store SMTP submissions automatically).
   try {

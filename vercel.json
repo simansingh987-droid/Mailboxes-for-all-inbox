@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/api/relay-send", "destination": "/api/relay-send" },
+    { "source": "/api/:path*", "destination": "https://askcruz-mailbox-api.onrender.com/api/:path*" },
+    { "source": "/mcp", "destination": "https://askcruz-mailbox-api.onrender.com/mcp" },
+    { "source": "/mcp/:path*", "destination": "https://askcruz-mailbox-api.onrender.com/mcp/:path*" },
+    { "source": "/((?!api/|mcp|assets/).*)", "destination": "/index.html" }
+  ]
+}
