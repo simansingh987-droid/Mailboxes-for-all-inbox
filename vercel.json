@@ -8,6 +8,6 @@
     { "source": "/api/:path*", "destination": "https://askcruz-mailbox-api.onrender.com/api/:path*" },
     { "source": "/mcp", "destination": "https://askcruz-mailbox-api.onrender.com/mcp" },
     { "source": "/mcp/:path*", "destination": "https://askcruz-mailbox-api.onrender.com/mcp/:path*" },
-    { "source": "/((?!api/|mcp|assets/).*)", "destination": "/index.html" }
+    { "source": "/((?!api/|mcp|assets/|\\.well-known/|register|authorize|token|oauth).*)", "destination": "/index.html" }
   ]
 }

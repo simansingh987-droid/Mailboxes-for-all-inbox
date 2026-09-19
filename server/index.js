@@ -268,12 +268,20 @@ app.all(['/mcp', '/mcp/:token'], async (req, res) => {
   }
 });
 
+// ---------- no OAuth ----------
+// The MCP endpoint is authorised by the secret in its URL. Answer OAuth discovery with a clean 404 so
+// MCP clients (e.g. Claude connectors) don't mistake the SPA's HTML for an OAuth server and try to
+// register a client with it.
+app.all([/^\/\.well-known\/.*/, '/register', '/authorize', '/token', '/oauth/*path'], (req, res) => {
+  res.status(404).json({ error: 'not_found', message: 'This server does not use OAuth.' });
+});
+
 // ---------- static frontend (production build) ----------
 
 const dist = path.join(ROOT, 'dist');
 if (fs.existsSync(dist)) {
   app.use(express.static(dist));
-  app.get(/^\/(?!api|mcp).*/, (req, res) => res.sendFile(path.join(dist, 'index.html')));
+  app.get(/^\/(?!api|mcp|\.well-known).*/, (req, res) => res.sendFile(path.join(dist, 'index.html')));
 }
 
 const server = app.listen(settings.port, settings.host, () => {
