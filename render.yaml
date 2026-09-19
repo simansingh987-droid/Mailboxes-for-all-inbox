@@ -1,0 +1,28 @@
+# Render blueprint — one always-on web service (UI + API + MCP connector).
+# Secrets (MAILBOXES_JSON, APP_PASSWORD, MCP_TOKEN, SESSION_SECRET) are entered in the Render
+# dashboard; generate them locally with `npm run export-env`.
+services:
+  - type: web
+    name: askcruz-mailbox
+    runtime: node
+    plan: starter # free instances sleep after 15 min, which breaks background sync and the connector
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/session
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: HOST
+        value: 0.0.0.0
+      - key: SYNC_CONCURRENCY
+        value: "8"
+      - key: MAX_IMAP_CONNECTIONS
+        value: "100"
+      - key: MAILBOXES_JSON
+        sync: false
+      - key: APP_PASSWORD
+        sync: false
+      - key: MCP_TOKEN
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
