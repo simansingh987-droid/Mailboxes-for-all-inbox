@@ -1,6 +1,8 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import fs from 'node:fs';
+import path from 'node:path';
 import { z } from 'zod';
-import { accounts, accountsInBatch, batches, requireAccount, resolveAccount, getAccount, expandMailboxRefs } from '../config.js';
+import { ROOT, accounts, accountsInBatch, batches, requireAccount, resolveAccount, getAccount, expandMailboxRefs } from '../config.js';
 import { mapLimit } from '../mail/pool.js';
 import * as mail from '../mail/service.js';
 import * as store from '../mail/store.js';
@@ -96,10 +98,40 @@ const mailboxArg = z
   .string()
   .describe('Mailbox reference: slot id ("1A", "14a", "ia"), first/full name, email address or domain');
 
+// ---------- brand icon ----------
+
+// Advertised in the MCP handshake so clients show the AskCruz icon. The hosted URL is listed
+// first when PUBLIC_URL is set; the embedded data URI works for local (stdio) clients too.
+let iconCache;
+function brandIcons() {
+  if (iconCache) return iconCache;
+  const icons = [];
+  const base = process.env.PUBLIC_URL?.replace(/\/$/, '');
+  if (base) {
+    icons.push({ src: `${base}/icon-512.png`, mimeType: 'image/png', sizes: ['512x512'] });
+    icons.push({ src: `${base}/icon-192.png`, mimeType: 'image/png', sizes: ['192x192'] });
+  }
+  try {
+    const png = fs.readFileSync(path.join(ROOT, 'public', 'mcp-icon.png'));
+    icons.push({ src: `data:image/png;base64,${png.toString('base64')}`, mimeType: 'image/png', sizes: ['128x128'] });
+  } catch {}
+  return (iconCache = icons);
+}
+
 // ---------- server ----------
 
 export function createMcpServer() {
-  const server = new McpServer({ name: 'askcruz-mailbox', version: '1.0.0' }, { instructions: INSTRUCTIONS });
+  const server = new McpServer(
+    {
+      name: 'askcruz-mailbox',
+      title: 'AskCruz Mailbox',
+      version: '1.0.0',
+      description: 'Read, search and send email from every AskCruz mailbox by slot (1A, 2B, …).',
+      icons: brandIcons(),
+      ...(process.env.PUBLIC_URL && { websiteUrl: process.env.PUBLIC_URL }),
+    },
+    { instructions: INSTRUCTIONS },
+  );
 
   server.registerTool(
     'list_mailboxes',

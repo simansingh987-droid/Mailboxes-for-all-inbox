@@ -77,6 +77,8 @@ Deploy on Render:
 
 The token in the URL is the only credential, so treat the URL like a password. Change `MCP_TOKEN` to revoke access.
 
+**Brand icon:** the MCP server sends the AskCruz icon in its handshake (`serverInfo.icons`, as an embedded image, plus hosted URLs when `PUBLIC_URL` is set). The site also serves `/favicon.ico`, which Claude's Connectors list typically shows. To regenerate every icon from `public/logo.webp`, run `python scripts/make-icons.py`.
+
 ## Configuration (`.env`)
 
 | Key | Purpose |
