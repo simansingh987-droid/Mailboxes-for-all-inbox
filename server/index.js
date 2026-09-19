@@ -249,13 +249,19 @@ app.get('/api/events', (req, res) => {
 // POST /mcp/<MCP_TOKEN> — a secret URL for Claude's custom connectors, which cannot send headers.
 app.all(['/mcp', '/mcp/:token'], async (req, res) => {
   if (!settings.mcpToken) return res.status(503).json({ error: 'Set MCP_TOKEN in .env to enable the HTTP MCP endpoint' });
-  if (tooManyFailures(req)) return res.status(429).json({ error: 'Too many attempts' });
-  const token = req.params.token || (req.headers.authorization || '').replace(/^Bearer /, '') || req.query.token;
+  const token = req.params.token || (req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim() || req.query.token;
+  // A valid token is always accepted. Only wrong tokens count toward the lockout — clients such as
+  // Claude probe without credentials first, from shared IPs, and must not lock themselves out.
   if (!token || !safeEqual(token, settings.mcpToken)) {
-    recordFailure(req);
-    return res.status(401).json({ error: 'Invalid MCP token' });
+    if (token) {
+      if (tooManyFailures(req)) return res.status(429).json({ error: 'Too many attempts' });
+      recordFailure(req);
+    }
+    log.warn(`MCP ${req.method} ${req.path.replace(/\/mcp\/.+/, '/mcp/***')} rejected: ${token ? 'wrong token' : 'no token'} from ${req.ip}`);
+    return res.status(401).json({ error: token ? 'Invalid MCP token' : 'MCP token required' });
   }
-  if (req.method !== 'POST') return res.status(405).set('Allow', 'POST').end();
+  if (req.method !== 'POST') return res.status(405).set('Allow', 'POST').json({ error: 'Use POST (stateless Streamable HTTP)' });
+  log.info(`MCP ${req.body?.method || 'request'} from ${req.headers['user-agent']?.slice(0, 40) || 'client'}`);
   try {
     const server = createMcpServer();
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
